@@ -60,10 +60,10 @@ This is a Task Manager application built using React Native and Expo SDK 48. The
 
 ## Screenshots
 
-![Welcome Screen](./screenshots/welcome.png)
-![Task List](./screenshots/tasks.png)
-![Add Task](./screenshots/add-task.png)
-![Task Details](./screenshots/task-details.png)
+<img src="./screenshots/welcome.png" alt="Welcome Screen" height="400" width="200">
+<img src="./screenshots/tasks.png" alt="Task List" height="400" width="200">
+<img src="./screenshots/add-task.png" alt="Add Task" height="400" width="200">
+<img src="./screenshots/task-details.png" alt="Task Details" height="400" width="200">
 
 ## License
 
