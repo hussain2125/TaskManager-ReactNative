@@ -2,39 +2,63 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Image, TouchableOpacity, StyleSheet, Modal, TextInput, StatusBar } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { firebase } from "../../firebaseConfig";
 
-const Welcome = ({ navigation, route }) => {
+const Welcome = ({ navigation }) => {
   // State variables for user name and modal visibility
-  const [name, setName] = useState(route.params?.name || "User");
+  const [name, setName] = useState("User");
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Load user name from AsyncStorage when the component mounts
+  // Load user name from Firebase when the component mounts
   useEffect(() => {
-    const checkName = async () => {
-      const savedName = await AsyncStorage.getItem('userName');
-      if (savedName) {
-        setName(savedName);
-      } else {
-        setModalVisible(true);
+    const fetchName = async () => {
+      const user = firebase.auth().currentUser;
+      if (user) {
+        const userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+        if (userDoc.exists) {
+          setName(userDoc.data().username);
+        }
       }
     };
-    checkName();
+    fetchName();
   }, []);
 
   // Function to handle saving the user name
   const handleSaveName = async () => {
     if (name.trim() !== "") {
-      await AsyncStorage.setItem('userName', name);
-      setModalVisible(false);
+      const user = firebase.auth().currentUser;
+      if (user) {
+        await firebase.firestore().collection('users').doc(user.uid).update({ username: name });
+        setModalVisible(false);
+      }
+    }
+  };
+
+  // Function to handle user logout
+  const handleLogout = async () => {
+    try {
+      await firebase.auth().signOut();
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Login" }],
+      });
+    } catch (error) {
+      Alert.alert("Error", error.message);
     }
   };
 
   return (
     <View style={styles.safeArea}>
-      
-      {/* Header with settings icon */}
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      {/* Header with logout and settings icons */}
       <View style={styles.header}>
+        <Ionicons
+          name="log-out-outline"
+          size={30}
+          color="#000"
+          onPress={handleLogout}
+          style={styles.logoutIcon}
+        />
         <Ionicons
           name="settings-outline"
           size={30}
@@ -88,8 +112,6 @@ const Welcome = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
       </Modal>
-      
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
     </View>
   );
 };
@@ -101,9 +123,11 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    justifyContent: "space-between",
     padding: 10,
-    right: 5,
+  },
+  logoutIcon: {
+    marginRight: 20,
   },
   container: {
     flex: 1,

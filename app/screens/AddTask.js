@@ -1,20 +1,22 @@
 // Import necessary modules and components
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   Pressable,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import Toast from 'react-native-toast-message';
 import { TasksContext } from "../context/TasksContext";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { firebase } from "../../firebaseConfig";
+import toastConfig from "../../toastconfig";
 
-const AddTask = ({ navigation }) => {
+const AddTask = ({ navigation, route }) => {
   // Get setTasks function from context
   const { setTasks } = useContext(TasksContext);
   // State variables for task details
@@ -25,30 +27,59 @@ const AddTask = ({ navigation }) => {
   const [priority, setPriority] = useState("medium");
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (route.params?.selectedDate) {
+      const selectedDate = new Date(route.params.selectedDate);
+      setStartDate(selectedDate);
+      setEndDate(selectedDate);
+    }
+  }, [route.params?.selectedDate]);
 
   // Function to handle adding a new task
   const handleAddTask = async () => {
     if (title.trim() === "") {
-      Alert.alert("Error", "Task title cannot be empty.");
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Task title cannot be empty.',
+      });
       return;
     }
-    const newTask = {
-      title,
-      description,
-      startDate: startDate.toString(),
-      endDate: endDate.toString(),
-      priority,
-    };
-    setTasks((prevTasks) => [...prevTasks, newTask]);
-    try {
-      const storedTasks = await AsyncStorage.getItem("tasks");
-      const tasks = storedTasks ? JSON.parse(storedTasks) : [];
-      tasks.push(newTask);
-      await AsyncStorage.setItem("tasks", JSON.stringify(tasks));
-    } catch (error) {
-      console.error("Error saving task to AsyncStorage", error);
+    if (endDate < startDate) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Due date cannot be earlier than start date.',
+      });
+      return;
     }
-    navigation.goBack();
+    setLoading(true);
+    const user = firebase.auth().currentUser;
+    if (user) {
+      const newTask = {
+        title,
+        description,
+        startDate: startDate.toString(),
+        endDate: endDate.toString(),
+        priority,
+        userId: user.uid,
+      };
+      try {
+        const taskRef = await firebase.firestore().collection('tasks').add(newTask);
+        setTasks((prevTasks) => [...prevTasks, { id: taskRef.id, ...newTask }]);
+        setLoading(false);
+        navigation.navigate("Tasks");
+      } catch (error) {
+        setLoading(false);
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to add task. Please try again.',
+        });
+      }
+    }
   };
 
   return (
@@ -98,6 +129,9 @@ const AddTask = ({ navigation }) => {
                 setShowStartDatePicker(false);
                 if (selectedDate) {
                   setStartDate(selectedDate);
+                  if (selectedDate > endDate) {
+                    setEndDate(selectedDate);
+                  }
                 }
               }}
             />
@@ -171,9 +205,15 @@ const AddTask = ({ navigation }) => {
             },
             styles.button,
           ]}
+          disabled={loading}
         >
-          <Text style={styles.buttonText}>Set Task</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Set Task</Text>
+          )}
         </Pressable>
+        <Toast  config={toastConfig}/>
       </View>
     </ScrollView>
   );

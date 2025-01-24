@@ -1,12 +1,13 @@
 // Import necessary modules and components
 import React, { useState, useContext } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { TasksContext } from "../context/TasksContext";
 
 // External Libraries that are used in the file:
 import DateTimePicker from '@react-native-community/datetimepicker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from "@expo/vector-icons";
+import { firebase } from "../../firebaseConfig";
+import Toast from 'react-native-toast-message';
 
 const TaskDetails = ({ route, navigation }) => {
   // Get task details from route parameters
@@ -28,16 +29,37 @@ const TaskDetails = ({ route, navigation }) => {
   // Function to handle saving the updated task
   const handleSaveTask = async () => {
     if (title.trim() === "") {
-      Alert.alert("Error", "Task title cannot be empty.");
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Task title cannot be empty.',
+      });
+      return;
+    }
+    if (endDate < startDate) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Due date cannot be earlier than start date.',
+      });
       return;
     }
     const updatedTask = { ...task, title, description, startDate: startDate.toString(), endDate: endDate.toString(), priority };
-    const updatedTasks = tasks.map(t => t === task ? updatedTask : t);
+    const updatedTasks = tasks.map(t => t.id === task.id ? updatedTask : t);
     setTasks(updatedTasks);
     try {
-      await AsyncStorage.setItem('tasks', JSON.stringify(updatedTasks));
+      await firebase.firestore().collection('tasks').doc(task.id).update(updatedTask);
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: 'Task updated successfully.',
+      });
     } catch (error) {
-      console.error("Error saving task to AsyncStorage", error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to update task. Please try again.',
+      });
     }
     setIsEditing(false);
     navigation.goBack();
@@ -100,6 +122,9 @@ const TaskDetails = ({ route, navigation }) => {
                     setShowStartDatePicker(false);
                     if (selectedDate) {
                       setStartDate(selectedDate);
+                      if (selectedDate > endDate) {
+                        setEndDate(selectedDate);
+                      }
                     }
                   }}
                 />
@@ -161,6 +186,7 @@ const TaskDetails = ({ route, navigation }) => {
           <Text style={styles.buttonText}>Save</Text>
         </TouchableOpacity>
       )}
+      <Toast />
     </View>
   );
 };
